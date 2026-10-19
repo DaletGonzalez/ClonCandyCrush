@@ -11,14 +11,23 @@
   try { saved = JSON.parse(localStorage.getItem('caramelo-club')) || {}; } catch { /* El juego funciona sin almacenamiento. */ }
   let level = Number.isSafeInteger(saved.level) && saved.level > 0 ? Math.min(saved.level, 10000) : 1;
   let record = Number.isSafeInteger(saved.record) && saved.record > 0 ? saved.record : 0;
-  let board, selected = null, busy = false, score = 0, goal, finished = false;
+  // Mejor resultado por nivel: { [nivel]: { stars, score } }; stars 0 = aún no superado.
+  const levels = {};
+  for (const [key, entry] of Object.entries(saved.levels && typeof saved.levels === 'object' ? saved.levels : {})) {
+    const n = Number(key);
+    if (Number.isSafeInteger(n) && n > 0 && [0, 1, 2, 3].includes(entry?.stars) && Number.isSafeInteger(entry?.score) && entry.score >= 0) levels[n] = { stars: entry.stars, score: entry.score };
+  }
+  // Formato viejo: el récord global pasa al nivel guardado.
+  if (!saved.levels && record > 0) levels[level] = { stars: 0, score: record };
+  let board, selected = null, busy = false, score = 0, finished = false;
+  let config, moves = 0, collected = [], jelly = new Set();
   let sound = false, audio, pointerStart = null, suppressClick = false, dialogAction, hintTimer = null;
   const buttons = [];
   const effects = CandyEffects.create(document.querySelector('.board-shell'), buttons);
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
   function save() {
-    try { localStorage.setItem('caramelo-club', JSON.stringify({ level, record })); } catch { /* Almacenamiento opcional. */ }
+    try { localStorage.setItem('caramelo-club', JSON.stringify({ level, record, levels })); } catch { /* Almacenamiento opcional. */ }
   }
   function tone(combo = 1) {
     if (!sound) return;
@@ -37,7 +46,7 @@
   }
   function paint(i) {
     const tile = board[i], button = buttons[i];
-    button.className = `cell${selected === i ? ' selected' : ''}`;
+    button.className = `cell${selected === i ? ' selected' : ''}${jelly.has(i) ? ' jelly' : ''}`;
     if (tile) {
       let element = button.firstElementChild;
       if (!element) {
@@ -56,7 +65,10 @@
     board.forEach((tile, i) => paint(i));
     $('score').textContent = format(score);
     $('record').textContent = format(Math.max(record, score));
-    const progress = Math.min(100, score / goal * 100);
+    $('goal').textContent = config.type === 'score' ? format(config.goal)
+      : config.type === 'colors' ? config.targets.map(t => `${Math.min(t.count, collected[t.color])}/${t.count} ${colors[t.color]}`).join(' · ')
+      : `${config.jelly.length - jelly.size}/${config.jelly.length} gelatina`;
+    const progress = Math.min(100, objective() * 100);
     $('progress').style.width = `${progress}%`;
     document.querySelector('.progress').setAttribute('aria-valuenow', Math.round(progress));
   }
@@ -73,13 +85,23 @@
     $('dialog-action').focus();
   }
   function closeDialog() { $('overlay').hidden = true; $('board').inert = false; restartHint(); }
+  // Avance del objetivo del nivel, de 0 a 1.
+  function objective() {
+    if (config.type === 'score') return Math.min(1, score / config.goal);
+    if (config.type === 'colors') {
+      const total = config.targets.reduce((sum, target) => sum + target.count, 0);
+      return config.targets.reduce((sum, target) => sum + Math.min(target.count, collected[target.color]), 0) / total;
+    }
+    return 1 - jelly.size / config.jelly.length;
+  }
   function start() {
     effects.clear();
-    board = engine.createBoard();
-    selected = null; score = 0;
-    goal = 1500 + (level - 1) * 400; finished = false; busy = false;
+    config = CandyLevels.levelConfig(level);
+    board = engine.createBoard(config.colors);
+    selected = null; score = 0; moves = 0;
+    collected = Array(6).fill(0); jelly = new Set(config.jelly || []);
+    finished = false; busy = false;
     $('level').textContent = level;
-    $('goal').textContent = format(goal);
     $('level-name').textContent = $('board-label').textContent = names[(level - 1) % names.length];
     closeDialog(); render(); status('Elige un dulce y uno de sus vecinos.');
     restartHint();
@@ -138,20 +160,29 @@
       activated = [];
       status(combo > 1 ? `¡Cascada ×${combo}! +${format(result.clear.size * 60 * Math.min(combo, 5))} puntos` : '¡Qué dulce combinación!');
       await delay(reducedMotion.matches ? 0 : 260);
+      // Cuenta los dulces que se van (también el que se vuelve especial) y quita su gelatina.
+      for (const index of [...result.clear, ...result.specials.keys()]) {
+        if (board[index]?.color >= 0) collected[board[index].color]++;
+        jelly.delete(index);
+      }
       for (const index of result.clear) board[index] = null;
       for (const [index, tile] of result.specials) board[index] = tile;
       render();
       const previous = board.slice();
-      engine.refill(board); render();
+      engine.refill(board, config.colors); render();
       await fall(previous);
     }
     if (score > record) { record = score; save(); }
-    if (score >= goal) {
+    if (objective() >= 1) {
       finished = true;
-      showDialog('✦', '¡Dulce victoria!', `Lograste ${format(score)} puntos y superaste el nivel ${level}. El siguiente reto te espera.`, 'Siguiente nivel →', () => { level++; save(); start(); });
+      const stars = CandyLevels.stars(moves, config.par);
+      const best = levels[level] || { stars: 0, score: 0 };
+      levels[level] = { stars: Math.max(best.stars, stars), score: Math.max(best.score, score) };
+      save();
+      showDialog('✦', '¡Dulce victoria!', `${'★'.repeat(stars)}${'☆'.repeat(3 - stars)} Superaste el nivel ${level} en ${moves} movimientos (par ${config.par}) con ${format(score)} puntos. El siguiente reto te espera.`, 'Siguiente nivel →', () => { level++; save(); start(); });
     } else if (!engine.findMove(board)) {
       const previous = board.slice();
-      if (!engine.shuffle(board)) board = engine.createBoard();
+      if (!engine.shuffle(board)) board = engine.createBoard(config.colors);
       render();
       // Sólo se animan los dulces que cambiaron de casilla.
       const moves = [];
@@ -173,6 +204,7 @@
       busy = false; restartHint(); return;
     }
     // Cada dulce parte de la casilla del otro y se desliza a su nuevo lugar.
+    moves++;
     engine.swap(board, a, b); render();
     await slide([{ index: a, ...offset(b, a) }, { index: b, ...offset(a, b) }], { duration: 160 });
     const combo = engine.combine(board, a, b);
