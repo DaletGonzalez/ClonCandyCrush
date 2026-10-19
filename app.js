@@ -147,21 +147,8 @@
     }
     engine.swap(board, a, b); render();
     await delay(150);
-    let initial = null;
-    const activated = [];
-    if (board[a].special === 'bomb' || board[b].special === 'bomb') {
-      const both = board[a].special === 'bomb' && board[b].special === 'bomb';
-      const color = board[a].special === 'bomb' ? board[b].color : board[a].color;
-      initial = new Set([a, b]);
-      board.forEach((tile, i) => { if (both || tile.color === color) initial.add(i); });
-      for (const index of [a, b]) {
-        if (board[index].special === 'bomb') activated.push({ type: 'bomb', index, targets: [...initial] });
-      }
-      // El color elegido ya está incluido; evita una segunda explosión aleatoria.
-      if (board[a].special === 'bomb') board[a] = { ...board[a], special: null };
-      if (board[b].special === 'bomb') board[b] = { ...board[b], special: null };
-    } else if (board[a].special && board[b].special) initial = new Set([a, b]);
-    await resolve(initial, [b, a], activated);
+    const combo = engine.combine(board, a, b);
+    await resolve(combo?.clear ?? null, [b, a], combo?.effects ?? []);
     busy = false;
   }
   function choose(index) {

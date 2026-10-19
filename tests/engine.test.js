@@ -324,3 +324,52 @@ test('findMove: regresa la única jugada posible', () => {
 test('findMove: sin jugadas regresa null', () => {
   assert.equal(engine.findMove(neutral()), null);
 });
+
+test('combine: intercambio sin especiales regresa null', () => {
+  const board = neutral();
+  assert.equal(engine.combine(board, at(3, 3), at(3, 4)), null);
+  assert.equal(engine.combine(board, at(3, 3), at(2, 3)), null);
+});
+
+test('combine: un solo especial (sin bomba) regresa null', () => {
+  const board = neutral();
+  put(board, 3, 3, stripe(4, 'horizontal'));
+  assert.equal(engine.combine(board, at(3, 3), at(3, 4)), null);
+});
+
+test('combine: bomba con dulce normal limpia ese color y apaga la bomba', () => {
+  const board = neutral();
+  put(board, 3, 3, bomb());
+  const color = board[at(3, 4)].color;
+  const { clear, effects } = engine.combine(board, at(3, 3), at(3, 4));
+  const expected = new Set([at(3, 3)]);
+  board.forEach((tile, i) => { if (tile.color === color) expected.add(i); });
+  assert.deepEqual(sorted(clear), sorted(expected));
+  assert.equal(effects.length, 1);
+  assert.equal(effects[0].type, 'bomb');
+  assert.equal(effects[0].index, at(3, 3));
+  assert.deepEqual(sorted(effects[0].targets), sorted(clear));
+  assert.equal(board[at(3, 3)].special, null);
+});
+
+test('combine: bomba con bomba limpia todo el tablero', () => {
+  const board = neutral();
+  put(board, 3, 3, bomb());
+  put(board, 3, 4, bomb());
+  const { clear, effects } = engine.combine(board, at(3, 3), at(3, 4));
+  assert.equal(clear.size, SIZE * SIZE);
+  assert.deepEqual(effects.map(e => e.index), [at(3, 3), at(3, 4)]);
+  for (const effect of effects) assert.equal(effect.targets.length, SIZE * SIZE);
+  assert.equal(board[at(3, 3)].special, null);
+  assert.equal(board[at(3, 4)].special, null);
+});
+
+test('combine: dos especiales sin bomba limpian ambas celdas para que se activen', () => {
+  const board = neutral();
+  put(board, 3, 3, stripe(4, 'horizontal'));
+  put(board, 3, 4, wrapped(5));
+  const { clear, effects } = engine.combine(board, at(3, 3), at(3, 4));
+  assert.deepEqual(sorted(clear), [at(3, 3), at(3, 4)]);
+  assert.equal(effects.length, 0);
+  assert.equal(board[at(3, 3)].special, 'stripe');
+});

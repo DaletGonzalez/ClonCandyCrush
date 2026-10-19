@@ -107,6 +107,25 @@ const CandyEngine = (() => {
     }
     return clear;
   }
+  // Intercambio ya aplicado que involucra especiales. Regresa null si es una combinación normal.
+  function combine(board, a, b) {
+    const first = board[a], second = board[b];
+    if (first.special !== 'bomb' && second.special !== 'bomb') {
+      return first.special && second.special ? { clear: new Set([a, b]), effects: [] } : null;
+    }
+    const both = first.special === 'bomb' && second.special === 'bomb';
+    const color = first.special === 'bomb' ? second.color : first.color;
+    const clear = new Set([a, b]);
+    board.forEach((tile, i) => { if (both || tile.color === color) clear.add(i); });
+    const effects = [];
+    for (const index of [a, b]) {
+      if (board[index].special !== 'bomb') continue;
+      effects.push({ type: 'bomb', index, targets: [...clear] });
+      // El color elegido ya está incluido; evita una segunda explosión aleatoria.
+      board[index] = { ...board[index], special: null };
+    }
+    return { clear, effects };
+  }
   function refill(board) {
     for (let col = 0; col < SIZE; col++) {
       const tiles = [];
@@ -114,6 +133,6 @@ const CandyEngine = (() => {
       for (let row = SIZE - 1; row >= 0; row--) board[row * SIZE + col] = tiles[SIZE - 1 - row] || candy();
     }
   }
-  return { SIZE, createBoard, matches, swap, adjacent, validSwap, findMove, plan, expand, refill };
+  return { SIZE, createBoard, matches, swap, adjacent, validSwap, findMove, plan, expand, combine, refill };
 })();
 if (typeof module !== 'undefined') module.exports = CandyEngine;
