@@ -23,6 +23,18 @@ const CandyEffects = (() => {
     }
     new ResizeObserver(resize).observe(shell);
 
+    // Barrido de banda y línea blanca; offset lo desplaza de forma perpendicular
+    function sweep(effect, vertical, offset, reach) {
+      const length = vertical ? height : width;
+      const x = effect.x + (vertical ? offset : 0), y = effect.y + (vertical ? 0 : offset);
+      ctx.fillStyle = effect.color;
+      ctx.fillRect(vertical ? x - 5 : x - length * reach, vertical ? y - length * reach : y - 5,
+        vertical ? 10 : length * reach * 2, vertical ? length * reach * 2 : 10);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(vertical ? x - 1 : x - length * reach, vertical ? y - length * reach : y - 1,
+        vertical ? 2 : length * reach * 2, vertical ? length * reach * 2 : 2);
+    }
+
     function draw(now) {
       ctx.clearRect(0, 0, width, height);
       particles = particles.filter(particle => now - particle.start < 600);
@@ -44,17 +56,17 @@ const CandyEffects = (() => {
         ctx.lineWidth = 3;
         ctx.shadowColor = effect.color;
         ctx.shadowBlur = 12;
+        const reach = Math.min(1, progress * 4);
         if (effect.type === 'stripe') {
-          const reach = Math.min(1, progress * 4);
-          const vertical = effect.direction === 'vertical';
-          const length = vertical ? height : width;
-          ctx.fillRect(vertical ? effect.x - 5 : effect.x - length * reach,
-            vertical ? effect.y - length * reach : effect.y - 5,
-            vertical ? 10 : length * reach * 2, vertical ? length * reach * 2 : 10);
-          ctx.fillStyle = '#ffffff';
-          ctx.fillRect(vertical ? effect.x - 1 : effect.x - length * reach,
-            vertical ? effect.y - length * reach : effect.y - 1,
-            vertical ? 2 : length * reach * 2, vertical ? length * reach * 2 : 2);
+          sweep(effect, effect.direction === 'vertical', 0, reach);
+        } else if (effect.type === 'cross') {
+          sweep(effect, false, 0, reach);
+          sweep(effect, true, 0, reach);
+        } else if (effect.type === 'bigcross') {
+          for (const offset of [-effect.size, 0, effect.size]) {
+            sweep(effect, false, offset, reach);
+            sweep(effect, true, offset, reach);
+          }
         } else if (effect.type === 'wrapped') {
           ctx.lineWidth = 6 * (1 - progress) + 1;
           ctx.beginPath();
@@ -62,7 +74,14 @@ const CandyEffects = (() => {
           ctx.stroke();
           ctx.globalAlpha *= 0.15;
           ctx.fill();
-        } else if (effect.type === 'bomb') {
+        } else if (effect.type === 'blast') {
+          ctx.lineWidth = 10 * (1 - progress) + 1;
+          ctx.beginPath();
+          ctx.arc(effect.x, effect.y, effect.size * 2.8 * progress, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.globalAlpha *= 0.15;
+          ctx.fill();
+        } else if (effect.type === 'bomb' || effect.type === 'convert') {
           ctx.lineWidth = 2;
           for (const target of effect.targets) {
             ctx.beginPath();
@@ -70,6 +89,18 @@ const CandyEffects = (() => {
             ctx.lineTo((effect.x + target.x) / 2 + target.jitter, (effect.y + target.y) / 2 - target.jitter);
             ctx.lineTo(target.x, target.y);
             ctx.stroke();
+          }
+          if (effect.type === 'convert' && progress > 0.35) {
+            const grow = (progress - 0.35) / 0.65;
+            for (const target of effect.targets) {
+              if (effect.special === 'wrapped') {
+                ctx.beginPath();
+                ctx.arc(target.x, target.y, effect.size * 0.45 * grow, 0, Math.PI * 2);
+                ctx.stroke();
+              } else {
+                ctx.fillRect(target.x - effect.size / 2, target.y - 3, effect.size, 6);
+              }
+            }
           }
         }
         ctx.restore();
@@ -113,7 +144,8 @@ const CandyEffects = (() => {
       }
       for (const effect of activated) {
         effects.push({ ...effect, ...positions[effect.index], start: now,
-          color: effect.type === 'bomb' ? '#ede0ff' : palette[board[effect.index]?.color] || '#fff4be',
+          color: effect.type === 'bomb' ? '#ede0ff'
+            : palette[board[effect.type === 'convert' ? effect.targets[0] : effect.index]?.color] || '#fff4be',
           targets: effect.targets.map(index => ({ ...positions[index], jitter: Math.random() * 20 - 10 })) });
       }
       const indices = [...clear];
