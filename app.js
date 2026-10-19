@@ -148,6 +148,7 @@
     engine.swap(board, a, b); render();
     await delay(150);
     const combo = engine.combine(board, a, b);
+    if (combo) render();
     await resolve(combo?.clear ?? null, [b, a], combo?.effects ?? []);
     busy = false;
   }

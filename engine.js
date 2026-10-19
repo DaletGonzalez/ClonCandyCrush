@@ -107,23 +107,71 @@ const CandyEngine = (() => {
     }
     return clear;
   }
+  // Un especial ya usado en una combinación no debe volver a activarse en expand.
+  const spent = tile => ({ color: tile.color, special: null });
+  const cellsWhere = test => {
+    const cells = [];
+    for (let i = 0; i < SIZE * SIZE; i++) if (test(Math.floor(i / SIZE), i % SIZE)) cells.push(i);
+    return cells;
+  };
   // Intercambio ya aplicado que involucra especiales. Regresa null si es una combinación normal.
+  // b es la casilla destino: ahí se centran cruces y explosiones.
   function combine(board, a, b) {
     const first = board[a], second = board[b];
-    if (first.special !== 'bomb' && second.special !== 'bomb') {
-      return first.special && second.special ? { clear: new Set([a, b]), effects: [] } : null;
-    }
-    const both = first.special === 'bomb' && second.special === 'bomb';
-    const color = first.special === 'bomb' ? second.color : first.color;
+    const isBomb = [first.special === 'bomb', second.special === 'bomb'];
+    if (!isBomb[0] && !isBomb[1] && !(first.special && second.special)) return null;
     const clear = new Set([a, b]);
-    board.forEach((tile, i) => { if (both || tile.color === color) clear.add(i); });
     const effects = [];
-    for (const index of [a, b]) {
-      if (board[index].special !== 'bomb') continue;
-      effects.push({ type: 'bomb', index, targets: [...clear] });
-      // El color elegido ya está incluido; evita una segunda explosión aleatoria.
-      board[index] = { ...board[index], special: null };
+    if (isBomb[0] !== isBomb[1]) {
+      const bombCell = isBomb[0] ? a : b;
+      const otherCell = isBomb[0] ? b : a, other = board[otherCell];
+      if (other.special) {
+        // Bomba con rayado o envuelto: todo el color se vuelve ese especial y se activa.
+        const targets = [];
+        board.forEach((tile, i) => {
+          if (tile.color !== other.color) return;
+          // Los especiales que ya había conservan su efecto; sólo se convierten dulces normales.
+          if (tile.special && i !== otherCell) { clear.add(i); return; }
+          board[i] = other.special === 'stripe'
+            ? { color: other.color, special: 'stripe', direction: Math.random() < 0.5 ? 'horizontal' : 'vertical' }
+            : { color: other.color, special: 'wrapped' };
+          targets.push(i);
+          clear.add(i);
+        });
+        effects.push({ type: 'convert', special: other.special, index: bombCell, targets });
+        board[bombCell] = spent(board[bombCell]);
+        return { clear, effects };
+      }
     }
+    if (isBomb[0] || isBomb[1]) {
+      const both = isBomb[0] && isBomb[1];
+      const color = isBomb[0] ? second.color : first.color;
+      board.forEach((tile, i) => { if (both || tile.color === color) clear.add(i); });
+      for (const index of [a, b]) {
+        if (board[index].special !== 'bomb') continue;
+        effects.push({ type: 'bomb', index, targets: [...clear] });
+        // El color elegido ya está incluido; evita una segunda explosión aleatoria.
+        board[index] = spent(board[index]);
+      }
+      return { clear, effects };
+    }
+    const row = Math.floor(b / SIZE), col = b % SIZE;
+    const kinds = [first.special, second.special].sort().join('+');
+    let type, targets;
+    if (kinds === 'stripe+stripe') {
+      type = 'cross';
+      targets = cellsWhere((y, x) => y === row || x === col);
+    } else if (kinds === 'wrapped+wrapped') {
+      type = 'blast';
+      targets = cellsWhere((y, x) => Math.abs(y - row) <= 2 && Math.abs(x - col) <= 2);
+    } else {
+      type = 'bigcross';
+      targets = cellsWhere((y, x) => Math.abs(y - row) <= 1 || Math.abs(x - col) <= 1);
+    }
+    board[a] = spent(first);
+    board[b] = spent(second);
+    for (const cell of targets) clear.add(cell);
+    effects.push({ type, index: b, targets });
     return { clear, effects };
   }
   function refill(board) {

@@ -364,12 +364,200 @@ test('combine: bomba con bomba limpia todo el tablero', () => {
   assert.equal(board[at(3, 4)].special, null);
 });
 
-test('combine: dos especiales sin bomba limpian ambas celdas para que se activen', () => {
+// Celdas de las filas y columnas indicadas (unión).
+function lines(rows, cols) {
+  const cells = new Set();
+  for (let r = 0; r < SIZE; r++) for (let c = 0; c < SIZE; c++) if (rows.includes(r) || cols.includes(c)) cells.add(at(r, c));
+  return cells;
+}
+// Celdas del rectángulo filas × columnas.
+function block(rows, cols) {
+  const cells = new Set();
+  for (const r of rows) for (const c of cols) cells.add(at(r, c));
+  return cells;
+}
+const range = (from, to) => Array.from({ length: to - from + 1 }, (_, i) => from + i);
+// Casillas del tablero con el color dado.
+const cellsOfColor = (board, color) => {
+  const cells = [];
+  board.forEach((tile, i) => { if (tile.color === color) cells.push(i); });
+  return cells;
+};
+
+test('combine: rayado + rayado limpia fila y columna del destino', () => {
+  for (const [d1, d2] of [['horizontal', 'vertical'], ['horizontal', 'horizontal'], ['vertical', 'vertical']]) {
+    const board = neutral();
+    put(board, 3, 3, stripe(4, d1));
+    put(board, 3, 4, stripe(5, d2));
+    const { clear, effects } = engine.combine(board, at(3, 3), at(3, 4));
+    const expected = lines([3], [4]);
+    assert.equal(expected.size, 15);
+    assert.deepEqual(sorted(clear), sorted(expected));
+    assert.equal(effects.length, 1);
+    assert.equal(effects[0].type, 'cross');
+    assert.equal(effects[0].index, at(3, 4));
+    assert.deepEqual(sorted(effects[0].targets), sorted(expected));
+    assert.equal(board[at(3, 3)].special, null);
+    assert.equal(board[at(3, 4)].special, null);
+  }
+});
+
+test('combine: rayado + rayado en la orilla', () => {
   const board = neutral();
-  put(board, 3, 3, stripe(4, 'horizontal'));
+  put(board, 0, 1, stripe(4, 'horizontal'));
+  put(board, 0, 0, stripe(5, 'vertical'));
+  const { clear, effects } = engine.combine(board, at(0, 1), at(0, 0));
+  assert.deepEqual(sorted(clear), sorted(lines([0], [0])));
+  assert.equal(effects[0].type, 'cross');
+  assert.equal(effects[0].index, at(0, 0));
+  assert.deepEqual(sorted(effects[0].targets), sorted(lines([0], [0])));
+  assert.equal(board[at(0, 0)].special, null);
+  assert.equal(board[at(0, 1)].special, null);
+});
+
+test('combine: rayado + envuelto (ambos órdenes) limpia tres filas y tres columnas', () => {
+  for (const stripeFirst of [true, false]) {
+    const board = neutral();
+    put(board, 3, 3, stripeFirst ? stripe(4, 'horizontal') : wrapped(5));
+    put(board, 3, 4, stripeFirst ? wrapped(5) : stripe(4, 'vertical'));
+    const { clear, effects } = engine.combine(board, at(3, 3), at(3, 4));
+    const expected = lines([2, 3, 4], [3, 4, 5]);
+    assert.equal(expected.size, 39);
+    assert.deepEqual(sorted(clear), sorted(expected));
+    assert.equal(effects.length, 1);
+    assert.equal(effects[0].type, 'bigcross');
+    assert.equal(effects[0].index, at(3, 4));
+    assert.deepEqual(sorted(effects[0].targets), sorted(expected));
+    assert.equal(board[at(3, 3)].special, null);
+    assert.equal(board[at(3, 4)].special, null);
+  }
+});
+
+test('combine: rayado + envuelto en la orilla', () => {
+  const board = neutral();
+  put(board, 0, 1, stripe(4, 'horizontal'));
+  put(board, 0, 0, wrapped(5));
+  const { clear, effects } = engine.combine(board, at(0, 1), at(0, 0));
+  const expected = lines([0, 1], [0, 1]);
+  assert.equal(expected.size, 28);
+  assert.deepEqual(sorted(clear), sorted(expected));
+  assert.equal(effects[0].type, 'bigcross');
+  assert.equal(effects[0].index, at(0, 0));
+  assert.equal(board[at(0, 0)].special, null);
+  assert.equal(board[at(0, 1)].special, null);
+});
+
+test('combine: envuelto + envuelto limpia el cuadro de 5x5', () => {
+  const board = neutral();
+  put(board, 3, 3, wrapped(4));
   put(board, 3, 4, wrapped(5));
   const { clear, effects } = engine.combine(board, at(3, 3), at(3, 4));
-  assert.deepEqual(sorted(clear), [at(3, 3), at(3, 4)]);
-  assert.equal(effects.length, 0);
-  assert.equal(board[at(3, 3)].special, 'stripe');
+  const expected = block(range(1, 5), range(2, 6));
+  assert.equal(expected.size, 25);
+  assert.deepEqual(sorted(clear), sorted(expected));
+  assert.equal(effects.length, 1);
+  assert.equal(effects[0].type, 'blast');
+  assert.equal(effects[0].index, at(3, 4));
+  assert.deepEqual(sorted(effects[0].targets), sorted(expected));
+  assert.equal(board[at(3, 3)].special, null);
+  assert.equal(board[at(3, 4)].special, null);
+});
+
+test('combine: envuelto + envuelto en la esquina limpia 3x3', () => {
+  const board = neutral();
+  put(board, 0, 1, wrapped(4));
+  put(board, 0, 0, wrapped(5));
+  const { clear } = engine.combine(board, at(0, 1), at(0, 0));
+  assert.deepEqual(sorted(clear), sorted(block(range(0, 2), range(0, 2))));
+  assert.equal(board[at(0, 0)].special, null);
+  assert.equal(board[at(0, 1)].special, null);
+});
+
+test('combine: bomba + rayado convierte el color en rayados con la dirección fijada', () => {
+  for (const bombFirst of [true, false]) {
+    for (const [value, direction] of [[0.2, 'horizontal'], [0.8, 'vertical']]) {
+      const board = neutral();
+      put(board, 3, 3, bombFirst ? bomb() : stripe(2, 'vertical'));
+      put(board, 3, 4, bombFirst ? stripe(2, 'vertical') : bomb());
+      const bombCell = bombFirst ? at(3, 3) : at(3, 4);
+      const colored = cellsOfColor(board, 2);
+      assert.ok(colored.length > 2);
+      const { clear, effects } = withRandom([value], () => engine.combine(board, at(3, 3), at(3, 4)));
+      for (const i of colored) assert.deepEqual(board[i], stripe(2, direction));
+      assert.deepEqual(sorted(clear), sorted([bombCell, ...colored]));
+      assert.equal(effects.length, 1);
+      assert.equal(effects[0].type, 'convert');
+      assert.equal(effects[0].special, 'stripe');
+      assert.equal(effects[0].index, bombCell);
+      assert.deepEqual(sorted(effects[0].targets), sorted(colored));
+      assert.equal(board[bombCell].special, null);
+    }
+  }
+});
+
+test('combine: bomba + rayado puede sortear ambas direcciones', () => {
+  const board = neutral();
+  put(board, 3, 3, bomb());
+  put(board, 3, 4, stripe(2, 'vertical'));
+  const colored = cellsOfColor(board, 2);
+  withRandom([0.2, 0.8], () => engine.combine(board, at(3, 3), at(3, 4)));
+  const directions = new Set(colored.map(i => board[i].direction));
+  assert.deepEqual([...directions].sort(), ['horizontal', 'vertical']);
+});
+
+test('combine: bomba + envuelto convierte el color en envueltos', () => {
+  for (const bombFirst of [true, false]) {
+    const board = neutral();
+    put(board, 3, 3, bombFirst ? bomb() : wrapped(2));
+    put(board, 3, 4, bombFirst ? wrapped(2) : bomb());
+    const bombCell = bombFirst ? at(3, 3) : at(3, 4);
+    const colored = cellsOfColor(board, 2);
+    assert.ok(colored.length > 2);
+    const { clear, effects } = engine.combine(board, at(3, 3), at(3, 4));
+    for (const i of colored) assert.deepEqual(board[i], wrapped(2));
+    assert.deepEqual(sorted(clear), sorted([bombCell, ...colored]));
+    assert.equal(effects.length, 1);
+    assert.equal(effects[0].type, 'convert');
+    assert.equal(effects[0].special, 'wrapped');
+    assert.equal(effects[0].index, bombCell);
+    assert.deepEqual(sorted(effects[0].targets), sorted(colored));
+    assert.equal(board[bombCell].special, null);
+  }
+});
+
+test('expand tras rayado + rayado: no reactiva los rayados ni agrega celdas', () => {
+  const board = neutral();
+  put(board, 3, 3, stripe(4, 'horizontal'));
+  put(board, 3, 4, stripe(5, 'vertical'));
+  const { clear, effects } = engine.combine(board, at(3, 3), at(3, 4));
+  const before = sorted(clear);
+  const expanded = engine.expand(board, clear, effects);
+  assert.deepEqual(sorted(expanded), before);
+  assert.equal(effects.length, 1);
+});
+
+test('expand tras rayado + rayado: un envuelto en la cruz agrega su 3x3', () => {
+  const board = neutral();
+  put(board, 3, 3, stripe(4, 'horizontal'));
+  put(board, 3, 4, stripe(5, 'vertical'));
+  put(board, 6, 4, wrapped(5));
+  const { clear, effects } = engine.combine(board, at(3, 3), at(3, 4));
+  const expanded = engine.expand(board, clear, effects);
+  const expected = lines([3], [4]);
+  for (const cell of block(range(5, 7), range(3, 5))) expected.add(cell);
+  assert.deepEqual(sorted(expanded), sorted(expected));
+  assert.deepEqual(effects.map(e => e.type), ['cross', 'wrapped']);
+});
+
+test('combine: bomba + rayado conserva los especiales que ya había de ese color', () => {
+  const board = neutral();
+  put(board, 3, 3, bomb());
+  put(board, 3, 4, stripe(2, 'horizontal'));
+  const other = at(6, 6);
+  put(board, 6, 6, wrapped(2));
+  const { clear, effects } = withRandom([0.2], () => engine.combine(board, at(3, 3), at(3, 4)));
+  assert.equal(board[other].special, 'wrapped');
+  assert.ok(clear.has(other));
+  assert.equal(effects[0].targets.includes(other), false);
+  assert.equal(board[at(3, 4)].special, 'stripe');
 });
