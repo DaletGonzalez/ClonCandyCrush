@@ -58,16 +58,53 @@
     } else {
       button.firstElementChild?.remove();
     }
-    button.setAttribute('aria-label', `Fila ${Math.floor(i / 8) + 1}, columna ${i % 8 + 1}: ${tile?.special === 'bomb' ? 'bomba de color' : `dulce ${colors[tile?.color] || ''}${tile?.special ? ', especial' : ''}${tile?.direction ? ` ${tile.direction}` : ''}`}`);
+    button.setAttribute('aria-label', `Fila ${Math.floor(i / 8) + 1}, columna ${i % 8 + 1}: ${tile?.special === 'bomb' ? 'bomba de color' : `dulce ${colors[tile?.color] || ''}${tile?.special ? ', especial' : ''}${tile?.direction ? ` ${tile.direction}` : ''}`}${jelly.has(i) ? ', con gelatina' : ''}`);
     button.setAttribute('aria-pressed', selected === i ? 'true' : 'false');
+  }
+  function row(icon, text, done) {
+    const item = document.createElement('div');
+    item.className = done ? 'obj-row done' : 'obj-row';
+    const label = document.createElement('span');
+    label.textContent = done ? `${text} ✓` : text;
+    item.append(icon, label);
+    return item;
+  }
+  function renderObjective() {
+    const box = $('objective');
+    if (config.type === 'score') {
+      const line = document.createElement('div');
+      line.className = 'goal-line';
+      const label = document.createElement('span'), value = document.createElement('strong');
+      label.textContent = 'Objetivo';
+      value.textContent = format(config.goal);
+      line.append(label, value);
+      box.replaceChildren(line);
+    } else if (config.type === 'colors') {
+      box.replaceChildren(...config.targets.map(t => {
+        const candy = document.createElement('span');
+        candy.className = `candy c${t.color} mini`;
+        candy.title = colors[t.color];
+        const count = Math.min(t.count, collected[t.color]);
+        return row(candy, `${count}/${t.count} ${colors[t.color]}`, count >= t.count);
+      }));
+    } else {
+      const tile = document.createElement('span');
+      tile.className = 'jelly-mini';
+      const done = config.jelly.length - jelly.size;
+      box.replaceChildren(row(tile, `Gelatina ${done}/${config.jelly.length}`, jelly.size === 0));
+    }
   }
   function render() {
     board.forEach((tile, i) => paint(i));
     $('score').textContent = format(score);
-    $('record').textContent = format(Math.max(record, score));
-    $('goal').textContent = config.type === 'score' ? format(config.goal)
-      : config.type === 'colors' ? config.targets.map(t => `${Math.min(t.count, collected[t.color])}/${t.count} ${colors[t.color]}`).join(' · ')
-      : `${config.jelly.length - jelly.size}/${config.jelly.length} gelatina`;
+    $('total-stars').textContent = Object.values(levels).reduce((sum, entry) => sum + entry.stars, 0);
+    const best = levels[level];
+    $('level-record').textContent = best?.score ? `Récord del nivel: ${format(best.score)} · ${'★'.repeat(best.stars)}${'☆'.repeat(3 - best.stars)}` : '';
+    renderObjective();
+    const earned = CandyLevels.stars(moves, config.par);
+    $('moves').textContent = moves;
+    $('moves-stars').textContent = `${'★'.repeat(earned)}${'☆'.repeat(3 - earned)}`;
+    $('moves-stars').title = `3 estrellas hasta ${config.par} movimientos`;
     const progress = Math.min(100, objective() * 100);
     $('progress').style.width = `${progress}%`;
     document.querySelector('.progress').setAttribute('aria-valuenow', Math.round(progress));
@@ -179,7 +216,7 @@
       const best = levels[level] || { stars: 0, score: 0 };
       levels[level] = { stars: Math.max(best.stars, stars), score: Math.max(best.score, score) };
       save();
-      showDialog('✦', '¡Dulce victoria!', `${'★'.repeat(stars)}${'☆'.repeat(3 - stars)} Superaste el nivel ${level} en ${moves} movimientos (par ${config.par}) con ${format(score)} puntos. El siguiente reto te espera.`, 'Siguiente nivel →', () => { level++; save(); start(); });
+      showDialog(`${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}`, '¡Dulce victoria!', `${'★'.repeat(stars)}${'☆'.repeat(3 - stars)} Superaste el nivel ${level} en ${moves} movimientos (par ${config.par}) con ${format(score)} puntos. El siguiente reto te espera.`, 'Siguiente nivel →', () => { level++; save(); start(); });
     } else if (!engine.findMove(board)) {
       const previous = board.slice();
       if (!engine.shuffle(board)) board = engine.createBoard(config.colors);
