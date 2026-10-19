@@ -8,4 +8,6 @@
 - Mantener código sencillo, cambios pequeños y explicaciones breves en español.
 - Tablero 8×8, combinaciones de tres o más, cascadas, especiales y objetivos de puntuación. Sin límite de movimientos, tiempo, vidas ni intentos. El progreso se guarda en localStorage.
 - Los rayados creados por cuatro dulces siguen la dirección del intercambio que los generó: horizontal limpia una fila y vertical una columna. En cascadas sin intercambio se usa la orientación de la combinación.
+- Una línea de 5 crea bomba aunque forme T o L; una bomba activada por otro especial elimina el color más abundante entre lo que no se está limpiando. Combinaciones de especiales (en `combine` de `engine.js`, centradas en la casilla destino): rayado+rayado cruz, rayado+envuelto tres filas y tres columnas, envuelto+envuelto 5×5, bomba+rayado/envuelto convierte los dulces normales de ese color, bomba+bomba todo el tablero.
+- Las reglas del tablero tienen pruebas en `tests/` (`node --test`, sin dependencias).
 - Efectos visuales nativos en `effects.js`: partículas canvas, barridos direccionales, ondas, rayos de bombas, puntos flotantes y combos. `app.js` anima la caída desde la posición anterior mediante Web Animations. Respetar movimiento reducido y conservar quietos los dulces no afectados.

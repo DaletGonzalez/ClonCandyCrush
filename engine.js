@@ -116,7 +116,7 @@ const CandyEngine = (() => {
           board.forEach((item, i) => { if (item?.color === color) affected.push(i); });
         }
       }
-      if (tile?.special) effects.push({ type: tile.special, direction: tile.direction, index, targets: affected });
+      if (tile?.special && affected.length) effects.push({ type: tile.special, direction: tile.direction, index, targets: affected });
       for (const cell of affected) if (!clear.has(cell)) { clear.add(cell); queue.push(cell); }
     }
     return clear;

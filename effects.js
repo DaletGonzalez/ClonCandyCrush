@@ -98,7 +98,8 @@ const CandyEffects = (() => {
                 ctx.arc(target.x, target.y, effect.size * 0.45 * grow, 0, Math.PI * 2);
                 ctx.stroke();
               } else {
-                ctx.fillRect(target.x - effect.size / 2, target.y - 3, effect.size, 6);
+                ctx.fillRect(target.x - (target.vertical ? 3 : effect.size / 2), target.y - (target.vertical ? effect.size / 2 : 3),
+                  target.vertical ? 6 : effect.size, target.vertical ? effect.size : 6);
               }
             }
           }
@@ -146,7 +147,7 @@ const CandyEffects = (() => {
         effects.push({ ...effect, ...positions[effect.index], start: now,
           color: effect.type === 'bomb' ? '#ede0ff'
             : palette[board[effect.type === 'convert' ? effect.targets[0] : effect.index]?.color] || '#fff4be',
-          targets: effect.targets.map(index => ({ ...positions[index], jitter: Math.random() * 20 - 10 })) });
+          targets: effect.targets.map(index => ({ ...positions[index], jitter: Math.random() * 20 - 10, vertical: board[index]?.direction === 'vertical' })) });
       }
       const indices = [...clear];
       if (indices.length) {

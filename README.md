@@ -14,9 +14,14 @@ Dirigido a navegadores de PC, con mouse y teclado.
 - Junta al menos tres del mismo color. Los cambios sin combinación se rechazan.
 - Alcanza el objetivo para pasar de nivel, sin límites de movimientos, tiempo, vidas ni intentos.
 - Cuatro en línea crean un dulce rayado. Si el intercambio que lo creó fue horizontal, limpia su fila; si fue vertical, limpia su columna. Las rayas muestran esa dirección. En cascadas, la orientación sigue la línea combinada.
-- Cinco en línea crean una bomba: intercámbiala con un dulce para eliminar ese color.
-- Una T o L crea un dulce envuelto que explota en un área de 3×3.
-- Dos especiales vecinos pueden intercambiarse para activar ambos.
+- Cinco en línea crean una bomba, aunque formen una T o L: intercámbiala con un dulce para eliminar ese color. Si otro especial la alcanza, elimina el color que más abunde.
+- Una T o L de tres o cuatro por lado crea un dulce envuelto que explota en un área de 3×3.
+- Dos especiales vecinos se combinan al intercambiarlos:
+  - Rayado + rayado: limpia la fila y la columna completas.
+  - Rayado + envuelto: limpia tres filas y tres columnas.
+  - Envuelto + envuelto: explosión de 5×5.
+  - Bomba + rayado o envuelto: los dulces normales de ese color se vuelven ese especial y todos se activan; los especiales que ya había de ese color explotan a su manera.
+  - Bomba + bomba: limpia todo el tablero.
 - Usa **Una pista** si necesitas ayuda. Si no hay jugadas, el tablero se renueva automáticamente.
 - Con teclado: flechas para desplazarte, Enter o espacio para seleccionar.
 - Nivel y récord se guardan en este navegador. El tablero de una partida se reinicia al recargar.

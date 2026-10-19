@@ -35,24 +35,25 @@
       oscillator.start(); oscillator.stop(audio.currentTime + 0.23);
     } catch { sound = false; updateSound(); }
   }
-  function render() {
-    board.forEach((tile, i) => {
-      const button = buttons[i];
-      button.className = `cell${selected === i ? ' selected' : ''}`;
-      if (tile) {
-        let element = button.firstElementChild;
-        if (!element) {
-          element = document.createElement('span');
-          button.append(element);
-        }
-        const className = `candy c${tile.color} ${tile.special || ''} ${tile.direction || ''}`;
-        if (element.className !== className) element.className = className;
-      } else {
-        button.firstElementChild?.remove();
+  function paint(i) {
+    const tile = board[i], button = buttons[i];
+    button.className = `cell${selected === i ? ' selected' : ''}`;
+    if (tile) {
+      let element = button.firstElementChild;
+      if (!element) {
+        element = document.createElement('span');
+        button.append(element);
       }
-      button.setAttribute('aria-label', `Fila ${Math.floor(i / 8) + 1}, columna ${i % 8 + 1}: ${tile?.special === 'bomb' ? 'bomba de color' : `dulce ${colors[tile?.color] || ''}${tile?.special ? ', especial' : ''}${tile?.direction ? ` ${tile.direction}` : ''}`}`);
-      button.setAttribute('aria-pressed', selected === i ? 'true' : 'false');
-    });
+      const className = `candy c${tile.color} ${tile.special || ''} ${tile.direction || ''}`;
+      if (element.className !== className) element.className = className;
+    } else {
+      button.firstElementChild?.remove();
+    }
+    button.setAttribute('aria-label', `Fila ${Math.floor(i / 8) + 1}, columna ${i % 8 + 1}: ${tile?.special === 'bomb' ? 'bomba de color' : `dulce ${colors[tile?.color] || ''}${tile?.special ? ', especial' : ''}${tile?.direction ? ` ${tile.direction}` : ''}`}`);
+    button.setAttribute('aria-pressed', selected === i ? 'true' : 'false');
+  }
+  function render() {
+    board.forEach((tile, i) => paint(i));
     $('score').textContent = format(score);
     $('record').textContent = format(Math.max(record, score));
     const progress = Math.min(100, score / goal * 100);
@@ -148,7 +149,8 @@
     engine.swap(board, a, b); render();
     await delay(150);
     const combo = engine.combine(board, a, b);
-    if (combo) render();
+    // Muestra los dulces que la bomba convirtió; los especiales gastados se ven igual hasta reventar.
+    for (const effect of combo?.effects ?? []) if (effect.type === 'convert') effect.targets.forEach(paint);
     await resolve(combo?.clear ?? null, [b, a], combo?.effects ?? []);
     busy = false;
   }
@@ -204,7 +206,7 @@
   $('dialog-action').addEventListener('click', () => { document.querySelector('.cancel')?.remove(); dialogAction?.(); });
   $('help').addEventListener('click', () => {
     if (busy || finished || !$('overlay').hidden) return;
-    showDialog('✧', 'Un momento para jugar', 'Haz clic en dos dulces vecinos o arrastra uno con el mouse. Combina 3 o más del mismo color y alcanza el objetivo sin límite de movimientos ni tiempo. Al juntar 4, la dirección del intercambio define si el rayado limpia una fila o columna. Intercambia una bomba con un dulce para eliminar su color. También puedes usar las flechas y Enter.', '¡A combinar!', () => { closeDialog(); buttons[0].focus(); });
+    showDialog('✧', 'Un momento para jugar', 'Haz clic en dos dulces vecinos o arrastra uno con el mouse. Combina 3 o más del mismo color y alcanza el objetivo sin límite de movimientos ni tiempo. Al juntar 4, la dirección del intercambio define si el rayado limpia una fila o columna. Cinco en línea hacen bomba aunque formen T o L. Intercambia una bomba con un dulce para eliminar su color (si otro especial la alcanza, elimina el color que más abunde), o dos especiales vecinos para combinarlos. También puedes usar las flechas y Enter.', '¡A combinar!', () => { closeDialog(); buttons[0].focus(); });
   });
   function updateSound() { $('sound').setAttribute('aria-pressed', sound); $('sound').innerHTML = `♫ <span>Sonido ${sound ? 'encendido' : 'apagado'}</span>`; }
   $('sound').addEventListener('click', () => { sound = !sound; updateSound(); if (sound) tone(); });
