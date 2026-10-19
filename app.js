@@ -82,11 +82,30 @@
     $('level-name').textContent = $('board-label').textContent = names[(level - 1) % names.length];
     closeDialog(); render(); status('Elige un dulce y uno de sus vecinos.');
   }
+  // Desplazamiento en píxeles de la casilla to a la casilla from.
+  function offset(from, to) {
+    const [first, right, below] = [0, 1, engine.SIZE].map(i => buttons[i].getBoundingClientRect());
+    return {
+      x: (from % engine.SIZE - to % engine.SIZE) * (right.left - first.left),
+      y: (Math.floor(from / engine.SIZE) - Math.floor(to / engine.SIZE)) * (below.top - first.top)
+    };
+  }
+  // Mueve el dulce de cada casilla desde (x, y) hasta su lugar; con back va y regresa.
+  async function slide(moves, { duration, easing = 'ease-in-out', back = false }) {
+    if (reducedMotion.matches || !moves.length) return;
+    await Promise.all(moves.map(({ index, x, y, time }) => {
+      const element = buttons[index].firstElementChild;
+      if (!element) return null;
+      buttons[index].classList.add('moving');
+      const frames = back ? ['0 0', `${x}px ${y}px`, '0 0'] : [`${x}px ${y}px`, '0 0'];
+      return element.animate(frames.map(translate => ({ translate })), { duration: time ?? duration, easing }).finished.catch(() => {});
+    }));
+    for (const { index } of moves) buttons[index].classList.remove('moving');
+  }
   async function fall(previous) {
-    const animations = [];
     if (reducedMotion.matches) return;
-    const positions = buttons.map(button => button.getBoundingClientRect());
-    const step = positions[engine.SIZE].top - positions[0].top;
+    const step = offset(engine.SIZE, 0).y;
+    const moves = [];
     board.forEach((tile, index) => {
       if (tile === previous[index]) return;
       const source = previous.indexOf(tile);
@@ -94,15 +113,9 @@
       const col = index % engine.SIZE;
       const missing = previous.filter((item, i) => i % engine.SIZE === col && !item).length;
       const sourceRow = source >= 0 ? Math.floor(source / engine.SIZE) : row - missing;
-      buttons[index].classList.add('falling');
-      const animation = buttons[index].firstElementChild.animate([
-        { translate: `0 ${(sourceRow - row) * step}px` },
-        { translate: '0 0' }
-      ], { duration: 260 + (row - sourceRow) * 35, easing: 'cubic-bezier(.32,0,.7,1)' });
-      animations.push(animation.finished);
+      moves.push({ index, x: 0, y: (sourceRow - row) * step, time: 260 + (row - sourceRow) * 35 });
     });
-    await Promise.all(animations);
-    buttons.forEach(button => button.classList.remove('falling'));
+    await slide(moves, { easing: 'cubic-bezier(.32,0,.7,1)' });
   }
   async function resolve(initial = null, preferred = [], activated = []) {
     let combo = 0;
@@ -141,13 +154,15 @@
   async function attempt(a, b) {
     if (busy || finished || !$('overlay').hidden) return;
     busy = true; selected = null;
+    render();
     if (!engine.validSwap(board, a, b)) {
-      render(); buttons[a].classList.add('invalid'); buttons[b].classList.add('invalid');
       status('Ese cambio no forma una combinación. Intenta otro.');
-      await delay(320); render(); busy = false; return;
+      await slide([{ index: a, ...offset(b, a) }, { index: b, ...offset(a, b) }], { duration: 280, back: true });
+      busy = false; return;
     }
+    // Cada dulce parte de la casilla del otro y se desliza a su nuevo lugar.
     engine.swap(board, a, b); render();
-    await delay(150);
+    await slide([{ index: a, ...offset(b, a) }, { index: b, ...offset(a, b) }], { duration: 160 });
     const combo = engine.combine(board, a, b);
     // Muestra los dulces que la bomba convirtió; los especiales gastados se ven igual hasta reventar.
     for (const effect of combo?.effects ?? []) if (effect.type === 'convert') effect.targets.forEach(paint);

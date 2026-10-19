@@ -509,10 +509,7 @@ footer span {
 .hint {
   animation:hint 1s ease-in-out infinite
 }
-.invalid {
-  animation:shake .28s
-}
-.falling .candy {
+.moving .candy {
   z-index:2;
 }
 .effects-canvas {
@@ -548,14 +545,6 @@ footer span {
   50% {
     box-shadow:inset 0 0 0 2px var(--accent);
     background:#667654
-  }
-}
-@keyframes shake {
-  25%,75% {
-    translate:-3px
-  }
-  50% {
-    translate:3px
   }
 }
 @media(min-width:1200px) {
