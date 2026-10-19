@@ -40,7 +40,7 @@ const CandyEffects = (() => {
       particles = particles.filter(particle => now - particle.start < 600);
       effects = effects.filter(effect => now - effect.start < 650);
       for (const particle of particles) {
-        const age = (now - particle.start) / 1000;
+        const age = Math.max(0, now - particle.start) / 1000;
         ctx.globalAlpha = Math.max(0, 1 - age / 0.6);
         ctx.fillStyle = particle.color;
         ctx.beginPath();
@@ -48,7 +48,8 @@ const CandyEffects = (() => {
         ctx.fill();
       }
       for (const effect of effects) {
-        const progress = Math.min(1, (now - effect.start) / 650);
+        // El tiempo del cuadro puede ser anterior al estallido; sin esto el radio sale negativo y arc truena.
+        const progress = Math.min(1, Math.max(0, now - effect.start) / 650);
         ctx.save();
         ctx.globalAlpha = Math.sin(progress * Math.PI);
         ctx.strokeStyle = effect.color;
