@@ -624,3 +624,169 @@ test('combine: bomba + rayado conserva los especiales que ya había de ese color
   assert.equal(effects[0].targets.includes(other), false);
   assert.equal(board[at(3, 4)].special, 'stripe');
 });
+
+// Sustituye Math.random por un generador determinista (mulberry32) y siempre lo restaura.
+function withSeed(seed, fn) {
+  const original = Math.random;
+  let s = seed >>> 0;
+  Math.random = () => {
+    s = (s + 0x6D2B79F5) >>> 0;
+    let t = s;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  try { return fn(); } finally { Math.random = original; }
+}
+
+// Todas las jugadas válidas por fuerza bruta.
+function validMoves(board) {
+  const valid = [];
+  for (let a = 0; a < board.length; a++) {
+    for (const b of [a + 1, a + SIZE]) {
+      if (b < board.length && engine.adjacent(a, b) && engine.validSwap(board, a, b)) valid.push([a, b]);
+    }
+  }
+  return valid;
+}
+// Arma una línea de 3 (fila 0-1), de 4 y de 5 (filas 5-6) con una jugada cada una.
+function threeMove(board, color) {
+  put(board, 0, 5, color); put(board, 0, 6, color); put(board, 1, 7, color);
+  return [at(0, 7), at(1, 7)];
+}
+function fourMove(board, color, row = 6) {
+  for (const c of [0, 1, 3]) put(board, row, c, color);
+  put(board, row - 1, 2, color);
+  return [at(row - 1, 2), at(row, 2)];
+}
+function fiveMove(board, color, row = 6) {
+  for (const c of [0, 1, 3, 4]) put(board, row, c, color);
+  put(board, row - 1, 2, color);
+  return [at(row - 1, 2), at(row, 2)];
+}
+
+test('bestMove: sin jugadas regresa null', () => {
+  assert.equal(engine.bestMove(neutral()), null);
+});
+
+test('bestMove: con una sola jugada regresa la de findMove', () => {
+  const board = neutral();
+  put(board, 3, 0, 5);
+  put(board, 3, 1, 5);
+  put(board, 2, 2, 5);
+  assert.equal(validMoves(board).length, 1);
+  assert.deepEqual(engine.bestMove(board), engine.findMove(board));
+});
+
+test('bestMove: combo de dos especiales gana sobre una línea de 5', () => {
+  const board = neutral();
+  put(board, 5, 4, stripe(4, 'horizontal'));
+  put(board, 5, 5, wrapped(4));
+  // La línea de 5 queda antes en el orden de búsqueda que el combo.
+  const five = fiveMove(board, 5, 2);
+  assert.ok(validMoves(board).some(([a, b]) => a === five[0] && b === five[1]));
+  assert.deepEqual(engine.findMove(board), five);
+  assert.deepEqual(engine.bestMove(board), [at(5, 4), at(5, 5)]);
+  assert.notDeepEqual(engine.bestMove(board), engine.findMove(board));
+});
+
+test('bestMove: envuelto (L de 3+3) gana sobre un rayado (línea de 4)', () => {
+  const board = neutral();
+  const four = fourMove(board, 5, 1);
+  // L con esquina en (5,2): al bajar el 4 de (4,2) se forman fila 5 y columna 2.
+  for (const [r, c] of [[5, 0], [5, 1], [6, 2], [7, 2], [4, 2]]) put(board, r, c, 4);
+  assert.deepEqual(engine.findMove(board), four);
+  assert.deepEqual(sorted(engine.bestMove(board)), [at(4, 2), at(5, 2)]);
+  assert.notDeepEqual(engine.bestMove(board), engine.findMove(board));
+});
+
+test('bestMove: línea de 5 gana sobre una de 4', () => {
+  const board = neutral();
+  const four = fourMove(board, 4, 2);
+  const five = fiveMove(board, 5);
+  // Las jugadas de cada línea existen; la de 5 puntúa más que cualquiera de las otras.
+  assert.ok(validMoves(board).length >= 2);
+  assert.notDeepEqual(engine.bestMove(board), four);
+  assert.deepEqual(engine.bestMove(board), five);
+});
+
+test('bestMove: línea de 4 gana sobre una de 3', () => {
+  const board = neutral();
+  const three = threeMove(board, 4);
+  const four = fourMove(board, 5);
+  assert.ok(validMoves(board).length >= 2);
+  assert.notDeepEqual(engine.bestMove(board), three);
+  assert.deepEqual(engine.bestMove(board), four);
+});
+
+test('bestMove: no modifica el tablero ni los dulces', () => {
+  const board = neutral();
+  put(board, 1, 4, stripe(4, 'horizontal'));
+  put(board, 1, 5, wrapped(4));
+  put(board, 3, 0, bomb());
+  fiveMove(board, 5);
+  const json = JSON.stringify(board);
+  const refs = board.slice();
+  assert.notEqual(engine.bestMove(board), null);
+  assert.equal(JSON.stringify(board), json);
+  board.forEach((tile, i) => assert.equal(tile, refs[i]));
+});
+
+test('bestMove: la conversión de bomba con rayado tampoco modifica el tablero', () => {
+  const board = neutral();
+  put(board, 3, 0, bomb());
+  put(board, 3, 1, stripe(2, 'horizontal'));
+  const json = JSON.stringify(board);
+  const refs = board.slice();
+  assert.notEqual(engine.bestMove(board), null);
+  assert.equal(JSON.stringify(board), json);
+  board.forEach((tile, i) => assert.equal(tile, refs[i]));
+});
+
+test('bestMove: no consume Math.random', () => {
+  const board = neutral();
+  put(board, 3, 0, bomb());
+  put(board, 3, 1, stripe(2, 'horizontal'));
+  const original = Math.random;
+  Math.random = () => { throw new Error('Math.random no debe usarse'); };
+  try { assert.notEqual(engine.bestMove(board), null); } finally { Math.random = original; }
+});
+
+test('shuffle: deja un tablero sin combinaciones, con jugada y los mismos dulces', () => {
+  const board = neutral();
+  const originals = new Set(board);
+  assert.equal(withSeed(7, () => engine.shuffle(board)), true);
+  assert.equal(engine.matches(board).length, 0);
+  assert.notEqual(engine.findMove(board), null);
+  assert.equal(board.length, SIZE * SIZE);
+  assert.equal(new Set(board).size, SIZE * SIZE);
+  for (const tile of board) assert.ok(originals.has(tile));
+});
+
+test('shuffle: conserva los especiales y su dirección', () => {
+  const board = neutral();
+  const s = stripe(4, 'vertical'), w = wrapped(5);
+  put(board, 2, 2, s);
+  put(board, 5, 5, w);
+  assert.equal(withSeed(11, () => engine.shuffle(board)), true);
+  assert.ok(board.includes(s) && board.includes(w));
+  assert.equal(s.special, 'stripe');
+  assert.equal(s.direction, 'vertical');
+  assert.equal(w.special, 'wrapped');
+});
+
+test('shuffle: la misma semilla da el mismo orden', () => {
+  const first = neutral(), second = neutral();
+  for (const board of [first, second]) put(board, 4, 4, stripe(4, 'horizontal'));
+  assert.equal(withSeed(42, () => engine.shuffle(first)), true);
+  assert.equal(withSeed(42, () => engine.shuffle(second)), true);
+  const key = board => board.map(t => `${t.color}${t.special ?? ''}${t.direction ?? ''}`);
+  assert.deepEqual(key(first), key(second));
+});
+
+test('shuffle: sin solución regresa false y restaura el orden', () => {
+  const board = Array.from({ length: SIZE * SIZE }, () => ({ color: 1, special: null }));
+  const refs = board.slice();
+  assert.equal(withSeed(3, () => engine.shuffle(board)), false);
+  board.forEach((tile, i) => assert.equal(tile, refs[i]));
+});

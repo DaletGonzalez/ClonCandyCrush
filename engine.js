@@ -130,7 +130,8 @@ const CandyEngine = (() => {
   };
   // Intercambio ya aplicado que involucra especiales. Regresa null si es una combinación normal.
   // b es la casilla destino: ahí se centran cruces y explosiones.
-  function combine(board, a, b) {
+  // random elige la dirección de los rayados convertidos; bestMove la fija para puntuar igual siempre.
+  function combine(board, a, b, random = Math.random) {
     const first = board[a], second = board[b];
     const isBomb = [first.special === 'bomb', second.special === 'bomb'];
     if (!isBomb[0] && !isBomb[1] && !(first.special && second.special)) return null;
@@ -147,7 +148,7 @@ const CandyEngine = (() => {
           // Los especiales que ya había conservan su efecto; sólo se convierten dulces normales.
           if (tile.special && i !== otherCell) { clear.add(i); return; }
           board[i] = other.special === 'stripe'
-            ? { color: other.color, special: 'stripe', direction: Math.random() < 0.5 ? 'horizontal' : 'vertical' }
+            ? { color: other.color, special: 'stripe', direction: random() < 0.5 ? 'horizontal' : 'vertical' }
             : { color: other.color, special: 'wrapped' };
           targets.push(i);
           clear.add(i);
@@ -188,6 +189,42 @@ const CandyEngine = (() => {
     effects.push({ type, index: b, targets });
     return { clear, effects };
   }
+  // Mejor jugada por puntaje; ante empate gana la primera en el orden de findMove.
+  function bestMove(board) {
+    let best = null, bestScore = -1;
+    for (let a = 0; a < board.length; a++) {
+      for (const b of [a % SIZE < SIZE - 1 ? a + 1 : -1, a + SIZE]) {
+        if (b < 0 || b >= board.length || !validSwap(board, a, b)) continue;
+        // combine y plan reemplazan casillas sin mutar los dulces: basta una copia superficial.
+        const copy = board.slice();
+        swap(copy, a, b);
+        const result = combine(copy, a, b, () => 0);
+        let score;
+        if (result) score = 100 + expand(copy, result.clear, []).size;
+        else {
+          const p = plan(copy, matches(copy), [b, a]);
+          score = expand(copy, new Set(p.clear), []).size;
+          for (const tile of p.specials.values()) score += tile.special === 'bomb' ? 30 : tile.special === 'wrapped' ? 20 : 15;
+        }
+        if (score > bestScore) { best = [a, b]; bestScore = score; }
+      }
+    }
+    return best;
+  }
+  // Revuelve los mismos dulces hasta dejar un tablero sin combinaciones y con jugada.
+  function shuffle(board) {
+    const original = board.slice(), tiles = board.slice();
+    for (let attempt = 0; attempt < 100; attempt++) {
+      for (let i = tiles.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [tiles[i], tiles[j]] = [tiles[j], tiles[i]];
+      }
+      tiles.forEach((tile, i) => { board[i] = tile; });
+      if (matches(board).length === 0 && findMove(board)) return true;
+    }
+    original.forEach((tile, i) => { board[i] = tile; });
+    return false;
+  }
   function refill(board) {
     for (let col = 0; col < SIZE; col++) {
       const tiles = [];
@@ -195,6 +232,6 @@ const CandyEngine = (() => {
       for (let row = SIZE - 1; row >= 0; row--) board[row * SIZE + col] = tiles[SIZE - 1 - row] || candy();
     }
   }
-  return { SIZE, createBoard, matches, swap, adjacent, validSwap, findMove, plan, expand, combine, refill };
+  return { SIZE, createBoard, matches, swap, adjacent, validSwap, findMove, bestMove, shuffle, plan, expand, combine, refill };
 })();
 if (typeof module !== 'undefined') module.exports = CandyEngine;
