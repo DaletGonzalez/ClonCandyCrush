@@ -790,3 +790,15 @@ test('shuffle: sin solución regresa false y restaura el orden', () => {
   assert.equal(withSeed(3, () => engine.shuffle(board)), false);
   board.forEach((tile, i) => assert.equal(tile, refs[i]));
 });
+
+test('createBoard y refill con 5 colores nunca usan el color 5', () => {
+  for (let n = 0; n < 100; n++) {
+    const board = engine.createBoard(5);
+    assert.ok(board.every(tile => tile.color >= 0 && tile.color < 5));
+    assert.equal(engine.matches(board).length, 0);
+    assert.notEqual(engine.findMove(board), null);
+    for (let i = 0; i < 24; i++) board[i] = null;
+    engine.refill(board, 5);
+    assert.ok(board.every(tile => tile && tile.color < 5));
+  }
+});

@@ -3,7 +3,7 @@
 const CandyEngine = (() => {
   const SIZE = 8;
   const COLORS = 6;
-  const candy = () => ({ color: Math.floor(Math.random() * COLORS), special: null });
+  const candy = (colors = COLORS) => ({ color: Math.floor(Math.random() * colors), special: null });
   const adjacent = (a, b) => Math.abs(a % SIZE - b % SIZE) + Math.abs(Math.floor(a / SIZE) - Math.floor(b / SIZE)) === 1;
   function swap(board, a, b) { [board[a], board[b]] = [board[b], board[a]]; }
   function matches(board) {
@@ -41,13 +41,14 @@ const CandyEngine = (() => {
     }
     return null;
   }
-  function createBoard() {
+  // colors limita los colores que aparecen (5 en los primeros niveles).
+  function createBoard(colors = COLORS) {
     let board;
     do {
       board = [];
       for (let i = 0; i < SIZE * SIZE; i++) {
         let tile;
-        do { tile = candy(); } while (
+        do { tile = candy(colors); } while (
           (i % SIZE >= 2 && board[i - 1].color === tile.color && board[i - 2].color === tile.color) ||
           (i >= SIZE * 2 && board[i - SIZE].color === tile.color && board[i - SIZE * 2].color === tile.color)
         );
@@ -225,11 +226,11 @@ const CandyEngine = (() => {
     original.forEach((tile, i) => { board[i] = tile; });
     return false;
   }
-  function refill(board) {
+  function refill(board, colors = COLORS) {
     for (let col = 0; col < SIZE; col++) {
       const tiles = [];
       for (let row = SIZE - 1; row >= 0; row--) if (board[row * SIZE + col]) tiles.push(board[row * SIZE + col]);
-      for (let row = SIZE - 1; row >= 0; row--) board[row * SIZE + col] = tiles[SIZE - 1 - row] || candy();
+      for (let row = SIZE - 1; row >= 0; row--) board[row * SIZE + col] = tiles[SIZE - 1 - row] || candy(colors);
     }
   }
   return { SIZE, createBoard, matches, swap, adjacent, validSwap, findMove, bestMove, shuffle, plan, expand, combine, refill };
