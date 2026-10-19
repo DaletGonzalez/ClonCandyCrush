@@ -3,8 +3,12 @@
 const CandyLevels = (() => {
   const SIZE = 8;
   const TYPES = ['score', 'colors', 'jelly'];
-  // Movimientos promedio por unidad de objetivo; el par sale de aquí.
-  const PACE = { score: 1 / 250, colors: 1 / 4, jelly: 1 / 2 };
+  // Movimientos por unidad de objetivo según los colores del nivel. Calibrado con partidas de
+  // prueba que eligen siempre la mejor jugada, más un 25 % de margen.
+  const PACE = {
+    5: { score: 1 / 560, colors: 0.34, jelly: 0.8 },
+    6: { score: 1 / 420, colors: 0.62, jelly: 1.75 }
+  };
   function square(side) {
     const start = (SIZE - side) / 2, cells = [];
     for (let row = start; row < start + side; row++) for (let col = start; col < start + side; col++) cells.push(row * SIZE + col);
@@ -26,7 +30,7 @@ const CandyLevels = (() => {
       config.jelly = square(level < 6 ? 4 : level < 16 ? 6 : 8);
       units = config.jelly.length;
     }
-    config.par = Math.max(5, Math.round(units * PACE[type]));
+    config.par = Math.max(5, Math.round(units * PACE[colors][type]));
     return config;
   }
   // 3 estrellas en el par o menos; 2 hasta 1.5 veces el par; 1 en cualquier otro caso.
