@@ -22,10 +22,10 @@ Dirigido a navegadores de PC, con mouse y teclado.
   - Envuelto + envuelto: explosión de 5×5.
   - Bomba + rayado o envuelto: los dulces normales de ese color se vuelven ese especial y todos se activan; los especiales que ya había de ese color explotan a su manera.
   - Bomba + bomba: limpia todo el tablero.
-- Usa **Una pista** si necesitas ayuda. Si no hay jugadas, el tablero se renueva automáticamente.
+- Usa **Una pista** si necesitas ayuda; tras 5 segundos sin jugar (y sin un dulce elegido), la mejor jugada se ilumina sola. Si no hay jugadas, los mismos dulces se revuelven automáticamente.
 - Con teclado: flechas para desplazarte, Enter o espacio para seleccionar.
 - Nivel y récord se guardan en este navegador. El tablero de una partida se reinicia al recargar.
 
 El sonido es opcional. No hay cuentas, conexión con otros jugadores ni servicios externos.
 
-Los efectos usan canvas, CSS y Web Animations: caída desde la posición anterior, partículas de colores, barridos de rayados, ondas de envueltos, rayos de bombas, puntos y combos flotantes. Se respeta la preferencia de movimiento reducido del sistema.
+Los efectos usan canvas, CSS y Web Animations: caída desde la posición anterior, intercambio deslizado, revoltura, partículas de colores, barridos de rayados, ondas de envueltos, rayos de bombas, puntos y combos flotantes. Se respeta la preferencia de movimiento reducido del sistema.
