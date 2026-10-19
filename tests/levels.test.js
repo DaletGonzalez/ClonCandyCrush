@@ -15,8 +15,8 @@ test('ciclo de tipos de objetivo', () => {
 });
 
 test('meta de puntos', () => {
-  assert.equal(levelConfig(1).goal, 1500);
-  assert.equal(levelConfig(10).goal, 1500 + 9 * 400);
+  assert.equal(levelConfig(1).goal, 4000);
+  assert.equal(levelConfig(10).goal, 4000 + 9 * 900);
 });
 
 test('objetivo de colores', () => {
@@ -60,4 +60,17 @@ test('estrellas según el par', () => {
   assert.equal(stars(15, 10), 2);
   assert.equal(stars(16, 10), 1);
   assert.equal(stars(0, 10), 3);
+});
+
+test('hintBonus: gelatina, colores que faltan y nada en puntos', () => {
+  const { levelConfig, hintBonus } = require('../levels.js');
+  assert.equal(hintBonus(levelConfig(1), Array(6).fill(0), new Set()), null);
+  const jellyBonus = hintBonus(levelConfig(3), Array(6).fill(0), new Set([27, 28]));
+  assert.equal(jellyBonus([27, 28, 0], []), 10);
+  const config = levelConfig(2);
+  const [first, second] = config.targets;
+  const collected = Array(6).fill(0);
+  collected[first.color] = first.count;
+  const board = [{ color: first.color }, { color: second.color }, { color: second.color }];
+  assert.equal(hintBonus(config, collected, new Set())([0, 1, 2], board), 6);
 });

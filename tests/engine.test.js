@@ -802,3 +802,23 @@ test('createBoard y refill con 5 colores nunca usan el color 5', () => {
     assert.ok(board.every(tile => tile && tile.color < 5));
   }
 });
+
+test('bestMove: el bono del objetivo puede cambiar la jugada elegida', () => {
+  const board = neutral();
+  // Dos jugadas de 3: una en la fila 1 (primera en el orden) y otra en la fila 6.
+  put(board, 1, 0, 4); put(board, 1, 1, 4); put(board, 0, 2, 4);
+  put(board, 6, 5, 5); put(board, 6, 6, 5); put(board, 5, 7, 5);
+  const before = board.slice(), snapshot = JSON.stringify(board);
+  const plain = engine.bestMove(board);
+  assert.deepEqual(sorted(plain), [at(0, 2), at(1, 2)]);
+  const target = new Set([at(6, 5), at(6, 6), at(6, 7)]);
+  const calls = [];
+  const move = engine.bestMove(board, (cells, copy) => {
+    calls.push(copy !== board);
+    return cells.filter(cell => target.has(cell)).length * 5;
+  });
+  assert.deepEqual(sorted(move), [at(5, 7), at(6, 7)]);
+  assert.ok(calls.length > 0 && calls.every(Boolean));
+  assert.equal(JSON.stringify(board), snapshot);
+  board.forEach((tile, i) => assert.equal(tile, before[i]));
+});

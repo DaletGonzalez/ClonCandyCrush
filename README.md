@@ -27,7 +27,7 @@ Dirigido a navegadores de PC, con mouse y teclado.
   - Envuelto + envuelto: explosión de 5×5.
   - Bomba + rayado o envuelto: los dulces normales de ese color se vuelven ese especial y todos se activan; los especiales que ya había de ese color explotan a su manera.
   - Bomba + bomba: limpia todo el tablero.
-- Usa **Una pista** si necesitas ayuda; tras 5 segundos sin jugar (y sin un dulce elegido), la mejor jugada se ilumina sola. Si no hay jugadas, los mismos dulces se revuelven automáticamente.
+- Usa **Una pista** si necesitas ayuda; tras 5 segundos sin jugar (y sin un dulce elegido), se ilumina sola la jugada que más ayuda al objetivo del nivel. Si no hay jugadas, los mismos dulces se revuelven automáticamente.
 - Con teclado: flechas para desplazarte, Enter o espacio para seleccionar.
 - El nivel, las estrellas y el mejor puntaje de cada nivel se guardan en este navegador. El tablero de una partida se reinicia al recargar.
 

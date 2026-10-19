@@ -10,7 +10,6 @@
   let saved = {};
   try { saved = JSON.parse(localStorage.getItem('caramelo-club')) || {}; } catch { /* El juego funciona sin almacenamiento. */ }
   let level = Number.isSafeInteger(saved.level) && saved.level > 0 ? Math.min(saved.level, 10000) : 1;
-  let record = Number.isSafeInteger(saved.record) && saved.record > 0 ? saved.record : 0;
   // Mejor resultado por nivel: { [nivel]: { stars, score } }; stars 0 = aún no superado.
   const levels = {};
   for (const [key, entry] of Object.entries(saved.levels && typeof saved.levels === 'object' ? saved.levels : {})) {
@@ -18,7 +17,7 @@
     if (Number.isSafeInteger(n) && n > 0 && [0, 1, 2, 3].includes(entry?.stars) && Number.isSafeInteger(entry?.score) && entry.score >= 0) levels[n] = { stars: entry.stars, score: entry.score };
   }
   // Formato viejo: el récord global pasa al nivel guardado.
-  if (!saved.levels && record > 0) levels[level] = { stars: 0, score: record };
+  if (!saved.levels && Number.isSafeInteger(saved.record) && saved.record > 0) levels[level] = { stars: 0, score: saved.record };
   let board, selected = null, busy = false, score = 0, finished = false;
   let config, moves = 0, collected = [], jelly = new Set();
   let sound = false, audio, pointerStart = null, suppressClick = false, dialogAction, hintTimer = null;
@@ -27,7 +26,7 @@
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
   function save() {
-    try { localStorage.setItem('caramelo-club', JSON.stringify({ level, record, levels })); } catch { /* Almacenamiento opcional. */ }
+    try { localStorage.setItem('caramelo-club', JSON.stringify({ level, levels })); } catch { /* Almacenamiento opcional. */ }
   }
   function tone(combo = 1) {
     if (!sound) return;
@@ -209,7 +208,6 @@
       engine.refill(board, config.colors); render();
       await fall(previous);
     }
-    if (score > record) { record = score; save(); }
     if (objective() >= 1) {
       finished = true;
       const stars = CandyLevels.stars(moves, config.par);
@@ -288,7 +286,7 @@
   function showHint() {
     clearTimeout(hintTimer);
     selected = null; render();
-    const move = engine.bestMove(board);
+    const move = engine.bestMove(board, CandyLevels.hintBonus(config, collected, jelly));
     if (move) { move.forEach(index => buttons[index].classList.add('hint')); status('Prueba intercambiar los dos dulces iluminados.'); }
   }
   // Apaga la pista visible y la programa de nuevo tras 5 s sin actividad.

@@ -191,7 +191,9 @@ const CandyEngine = (() => {
     return { clear, effects };
   }
   // Mejor jugada por puntaje; ante empate gana la primera en el orden de findMove.
-  function bestMove(board) {
+  // bonus(cells, copy) suma puntos extra según el objetivo del nivel; cells son las casillas que
+  // se limpian (incluida la que se vuelve especial) y copy el tablero con el intercambio aplicado.
+  function bestMove(board, bonus = null) {
     let best = null, bestScore = -1;
     for (let a = 0; a < board.length; a++) {
       for (const b of [a % SIZE < SIZE - 1 ? a + 1 : -1, a + SIZE]) {
@@ -200,13 +202,17 @@ const CandyEngine = (() => {
         const copy = board.slice();
         swap(copy, a, b);
         const result = combine(copy, a, b, () => 0);
-        let score;
-        if (result) score = 100 + expand(copy, result.clear, []).size;
-        else {
+        let score, cells;
+        if (result) {
+          cells = [...expand(copy, result.clear, [])];
+          score = 100 + cells.length;
+        } else {
           const p = plan(copy, matches(copy), [b, a]);
-          score = expand(copy, new Set(p.clear), []).size;
+          cells = [...expand(copy, new Set(p.clear), [])];
+          score = cells.length;
           for (const tile of p.specials.values()) score += tile.special === 'bomb' ? 30 : tile.special === 'wrapped' ? 20 : 15;
         }
+        if (bonus) score += bonus(cells, copy);
         if (score > bestScore) { best = [a, b]; bestScore = score; }
       }
     }
