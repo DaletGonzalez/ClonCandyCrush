@@ -60,14 +60,22 @@ const CandyEngine = (() => {
     const clear = new Set(groups.flatMap(group => group.cells));
     const specials = new Map();
     const intersections = new Set();
+    const wraps = new Set();
     for (const group of groups) {
       for (const other of groups) {
-        if (group.axis !== other.axis) for (const cell of group.cells) if (other.cells.includes(cell)) intersections.add(cell);
+        if (group.axis === other.axis) continue;
+        for (const cell of group.cells) {
+          if (!other.cells.includes(cell)) continue;
+          intersections.add(cell);
+          // Si algún grupo es de 5 o más, la intersección no se vuelve envuelto.
+          if (group.cells.length < 5 && other.cells.length < 5) wraps.add(cell);
+        }
       }
     }
-    for (const cell of intersections) specials.set(cell, { color: board[cell].color, special: 'wrapped' });
+    for (const cell of wraps) specials.set(cell, { color: board[cell].color, special: 'wrapped' });
     for (const group of groups) {
-      if (group.cells.length < 4 || group.cells.some(cell => intersections.has(cell))) continue;
+      // La bomba se crea aunque haya intersecciones; el rayado no.
+      if (group.cells.length < 4 || (group.cells.length < 5 && group.cells.some(cell => intersections.has(cell)))) continue;
       const cell = preferred.find(index => group.cells.includes(index)) ?? group.cells[Math.floor(group.cells.length / 2)];
       const tile = { color: group.cells.length >= 5 ? -1 : board[cell].color, special: group.cells.length >= 5 ? 'bomb' : 'stripe' };
       if (tile.special === 'stripe') {
@@ -99,8 +107,14 @@ const CandyEngine = (() => {
           if (row >= 0 && row < SIZE && col >= 0 && col < SIZE) affected.push(row * SIZE + col);
         }
       } else if (tile?.special === 'bomb') {
-        const color = Math.floor(Math.random() * COLORS);
-        board.forEach((item, i) => { if (item?.color === color) affected.push(i); });
+        // Elige el color con más casillas que aún no se limpian; en empate, el de número menor.
+        const counts = Array(COLORS).fill(0);
+        board.forEach((item, i) => { if (item && item.color >= 0 && !clear.has(i)) counts[item.color]++; });
+        const best = Math.max(...counts);
+        if (best > 0) {
+          const color = counts.indexOf(best);
+          board.forEach((item, i) => { if (item?.color === color) affected.push(i); });
+        }
       }
       if (tile?.special) effects.push({ type: tile.special, direction: tile.direction, index, targets: affected });
       for (const cell of affected) if (!clear.has(cell)) { clear.add(cell); queue.push(cell); }

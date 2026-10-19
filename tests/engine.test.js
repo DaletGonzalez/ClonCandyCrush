@@ -194,6 +194,31 @@ test('plan: forma L o T da envuelto en la celda compartida', () => {
   assert.equal(clear.size, 5);
 });
 
+test('plan: línea de 5 con T crea bomba y ningún envuelto', () => {
+  const board = neutral();
+  for (const c of range(1, 5)) put(board, 3, c, 4);
+  for (const r of [4, 5]) put(board, r, 3, 4);
+  const groups = engine.matches(board);
+  assert.equal(groups.length, 2);
+  const horizontal = groups.find(g => g.axis === 0);
+  const { clear, specials } = engine.plan(board, groups, []);
+  assert.equal(specials.size, 1);
+  assert.deepEqual(specials.get(horizontal.cells[2]), { color: -1, special: 'bomb' });
+  assert.equal(clear.size, 7);
+});
+
+test('plan: línea de 5 con L crea la bomba en la celda preferida', () => {
+  const board = neutral();
+  for (const c of range(1, 5)) put(board, 3, c, 4);
+  for (const r of [4, 5]) put(board, r, 1, 4);
+  const groups = engine.matches(board);
+  assert.equal(groups.length, 2);
+  const { clear, specials } = engine.plan(board, groups, [at(3, 2), at(2, 2)]);
+  assert.equal(specials.size, 1);
+  assert.deepEqual(specials.get(at(3, 2)), { color: -1, special: 'bomb' });
+  assert.equal(clear.size, 7);
+});
+
 test('plan: grupo de 3 no crea especiales', () => {
   const board = neutral();
   for (const c of [1, 2, 3]) put(board, 3, c, 4);
@@ -254,15 +279,53 @@ test('expand: cadena de rayado a envuelto', () => {
   assert.deepEqual(effects.map(e => e.type), ['stripe', 'wrapped']);
 });
 
-test('expand: bomba limpia todas las celdas del color elegido', () => {
+test('expand: bomba limpia todas las celdas del color más abundante (empate: el menor)', () => {
   const board = neutral();
-  put(board, 0, 0, bomb());
-  // 0.5 * 6 = 3 -> color 3
-  const clear = withRandom([0.5], () => engine.expand(board, new Set([at(0, 0)]), []));
-  const expected = [at(0, 0)];
-  board.forEach((tile, i) => { if (tile.color === 3) expected.push(i); });
+  // La bomba ocupa una casilla de color 3: quedan 0, 1 y 2 empatados con 16.
+  put(board, 0, 3, bomb());
+  const clear = engine.expand(board, new Set([at(0, 3)]), []);
+  const expected = [at(0, 3), ...cellsOfColor(board, 0)];
   assert.ok(expected.length > 1);
   assert.deepEqual(sorted(clear), sorted(expected));
+});
+
+test('expand: bomba elige el color que tiene más casillas', () => {
+  const board = neutral();
+  const changed = cellsOfColor(board, 1).slice(0, 3);
+  for (const i of changed) board[i] = { color: 2, special: null };
+  assert.equal(cellsOfColor(board, 2).length, 19);
+  put(board, 0, 0, bomb());
+  const clear = engine.expand(board, new Set([at(0, 0)]), []);
+  assert.deepEqual(sorted(clear), sorted([at(0, 0), ...cellsOfColor(board, 2)]));
+});
+
+test('expand: bomba alcanzada por un rayado limpia la fila y el color más abundante', () => {
+  const board = neutral();
+  put(board, 3, 0, stripe(4, 'horizontal'));
+  put(board, 3, 5, bomb());
+  const counts = Array(6).fill(0);
+  // Sólo cuentan las casillas fuera de la fila que ya limpia el rayado.
+  board.forEach((tile, i) => { if (tile.color >= 0 && Math.floor(i / SIZE) !== 3) counts[tile.color]++; });
+  const color = counts.indexOf(Math.max(...counts));
+  const effects = [];
+  const clear = engine.expand(board, new Set([at(3, 0)]), effects);
+  const expected = new Set([...lines([3], []), ...cellsOfColor(board, color)]);
+  assert.deepEqual(sorted(clear), sorted(expected));
+  assert.deepEqual(effects.map(e => e.type), ['stripe', 'bomb']);
+});
+
+test('expand: dos bombas en cadena eligen colores distintos', () => {
+  const board = neutral();
+  put(board, 3, 0, stripe(4, 'horizontal'));
+  put(board, 3, 2, bomb());
+  put(board, 3, 6, bomb());
+  const effects = [];
+  const clear = engine.expand(board, new Set([at(3, 0)]), effects);
+  const bombs = effects.filter(e => e.type === 'bomb');
+  assert.equal(bombs.length, 2);
+  const colorOf = effect => board[effect.targets.find(i => Math.floor(i / SIZE) !== 3)].color;
+  assert.notEqual(colorOf(bombs[0]), colorOf(bombs[1]));
+  for (const effect of bombs) for (const cell of effect.targets) assert.ok(clear.has(cell));
 });
 
 test('refill: los dulces caen conservando objetos y orden', () => {
