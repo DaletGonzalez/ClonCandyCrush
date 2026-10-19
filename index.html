@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#192448">
+  <title>Caramelo Club · Combina y disfruta</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+  <script defer src="engine.js"></script>
+  <script defer src="effects.js"></script>
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <main class="game">
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="Caramelo Club, inicio"><span class="brand-icon">✦</span> caramelo<span>club</span></a>
+      <span class="tag">UN RATITO DULCE</span>
+    </header>
+    <section class="intro"><span class="eyebrow">COMBINA · EXPLOTA · REPITE</span><h1>Una dulce <em>escapada.</em></h1><p>Junta tres. Sigue la cascada. Disfruta el momento.</p></section>
+    <div class="play-layout">
+      <aside class="sidebar">
+        <section class="level-card"><span class="eyebrow">TU PRÓXIMO RETO</span><h2>Nivel <span id="level">1</span><span class="level-star">✦</span></h2><p id="level-name">Jardín de azúcar</p><div class="goal-line"><span>Objetivo</span><strong id="goal">1,500</strong></div><div class="progress" role="progressbar" aria-label="Progreso del objetivo" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="progress"></span></div><div class="score-label">PUNTOS</div><div id="score" class="score">0</div><div class="moves"><span>Movimientos ilimitados</span><strong aria-label="Sin límite">∞</strong></div></section>
+        <section class="recipe"><h3>El ingrediente secreto</h3><p><span class="mini-candies">● ● ●</span> <b>3 dulces</b> suman puntos.</p><p><span class="recipe-icon">▤</span> <b>4 en línea</b> crean un rayado.</p><p><span class="recipe-icon">✹</span> <b>5 en línea</b> crean una bomba de color.</p><p class="tip">El rayado sigue la dirección de tu intercambio: fila o columna. Las combinaciones en T o L crean una explosión alrededor.</p></section>
+        <div class="record">♛ <span>Tu mejor partida</span><strong id="record">0</strong></div>
+      </aside>
+      <section class="board-area" aria-label="Zona de juego">
+        <div class="board-toolbar"><span><i></i> <span id="board-label">Jardín de azúcar</span></span><button id="help" class="icon-button" aria-label="Cómo jugar">?</button></div>
+        <div class="board-shell"><div id="board" class="board" role="group" aria-label="Tablero de dulces"></div><div id="overlay" class="overlay" hidden><div class="dialog"><div id="dialog-icon" class="dialog-icon">✦</div><h2 id="dialog-title"></h2><p id="dialog-text"></p><button id="dialog-action" class="primary"></button></div></div></div>
+        <div class="board-bottom"><span id="status" role="status" aria-live="polite">Elige un dulce y uno de sus vecinos.</span><span class="sparkle">✧</span></div>
+        <div class="actions"><button id="hint">✧ <span>Una pista</span></button><button id="restart">↻ <span>Reiniciar nivel</span></button><button id="sound" aria-pressed="false">♫ <span>Sonido apagado</span></button></div>
+      </section>
+    </div>
+    <footer>Hecho para desconectar <span>✦</span> Sin prisas, solo dulces.</footer>
+  </main>
+</body>
+</html>
