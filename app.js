@@ -12,7 +12,7 @@
   let level = Number.isSafeInteger(saved.level) && saved.level > 0 ? Math.min(saved.level, 10000) : 1;
   let record = Number.isSafeInteger(saved.record) && saved.record > 0 ? saved.record : 0;
   let board, selected = null, busy = false, score = 0, goal, finished = false;
-  let sound = false, audio, pointerStart = null, suppressClick = false, dialogAction;
+  let sound = false, audio, pointerStart = null, suppressClick = false, dialogAction, hintTimer = null;
   const buttons = [];
   const effects = CandyEffects.create(document.querySelector('.board-shell'), buttons);
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -67,11 +67,12 @@
     $('dialog-text').textContent = text;
     $('dialog-action').textContent = label;
     dialogAction = action;
+    clearTimeout(hintTimer);
     $('overlay').hidden = false;
     $('board').inert = true;
     $('dialog-action').focus();
   }
-  function closeDialog() { $('overlay').hidden = true; $('board').inert = false; }
+  function closeDialog() { $('overlay').hidden = true; $('board').inert = false; restartHint(); }
   function start() {
     effects.clear();
     board = engine.createBoard();
@@ -81,6 +82,7 @@
     $('goal').textContent = format(goal);
     $('level-name').textContent = $('board-label').textContent = names[(level - 1) % names.length];
     closeDialog(); render(); status('Elige un dulce y uno de sus vecinos.');
+    restartHint();
   }
   // Desplazamiento en píxeles de la casilla to a la casilla from.
   function offset(from, to) {
@@ -148,7 +150,17 @@
       finished = true;
       showDialog('✦', '¡Dulce victoria!', `Lograste ${format(score)} puntos y superaste el nivel ${level}. El siguiente reto te espera.`, 'Siguiente nivel →', () => { level++; save(); start(); });
     } else if (!engine.findMove(board)) {
-      board = engine.createBoard(); render(); status('Mezclamos los dulces: ya hay nuevas jugadas.');
+      const previous = board.slice();
+      if (!engine.shuffle(board)) board = engine.createBoard();
+      render();
+      // Sólo se animan los dulces que cambiaron de casilla.
+      const moves = [];
+      board.forEach((tile, index) => {
+        const from = previous.indexOf(tile);
+        if (from >= 0 && from !== index) moves.push({ index, ...offset(from, index) });
+      });
+      await slide(moves, { duration: 420 });
+      status('Mezclamos los dulces: ya hay nuevas jugadas.');
     }
   }
   async function attempt(a, b) {
@@ -158,7 +170,7 @@
     if (!engine.validSwap(board, a, b)) {
       status('Ese cambio no forma una combinación. Intenta otro.');
       await slide([{ index: a, ...offset(b, a) }, { index: b, ...offset(a, b) }], { duration: 280, back: true });
-      busy = false; return;
+      busy = false; restartHint(); return;
     }
     // Cada dulce parte de la casilla del otro y se desliza a su nuevo lugar.
     engine.swap(board, a, b); render();
@@ -167,7 +179,7 @@
     // Muestra los dulces que la bomba convirtió; los especiales gastados se ven igual hasta reventar.
     for (const effect of combo?.effects ?? []) if (effect.type === 'convert') effect.targets.forEach(paint);
     await resolve(combo?.clear ?? null, [b, a], combo?.effects ?? []);
-    busy = false;
+    busy = false; restartHint();
   }
   function choose(index) {
     if (busy || finished || !$('overlay').hidden) return;
@@ -204,11 +216,25 @@
     if (next >= 0 && next < 64 && engine.adjacent(index, next)) attempt(index, next);
   });
   window.addEventListener('pointercancel', () => { pointerStart = null; });
+  function showHint() {
+    clearTimeout(hintTimer);
+    selected = null; render();
+    const move = engine.bestMove(board);
+    if (move) { move.forEach(index => buttons[index].classList.add('hint')); status('Prueba intercambiar los dos dulces iluminados.'); }
+  }
+  // Apaga la pista visible y la programa de nuevo tras 5 s sin actividad.
+  function restartHint() {
+    clearTimeout(hintTimer);
+    buttons.forEach(button => button.classList.remove('hint'));
+    const idle = () => !busy && !finished && $('overlay').hidden;
+    // No interrumpe a quien ya eligió un dulce.
+    if (idle()) hintTimer = setTimeout(() => { if (idle() && selected === null) showHint(); }, 5000);
+  }
+  window.addEventListener('pointerdown', restartHint);
+  window.addEventListener('keydown', restartHint);
   $('hint').addEventListener('click', () => {
     if (busy || finished || !$('overlay').hidden) return;
-    selected = null; render();
-    const move = engine.findMove(board);
-    if (move) { move.forEach(index => buttons[index].classList.add('hint')); status('Prueba intercambiar los dos dulces iluminados.'); }
+    showHint();
   });
   $('restart').addEventListener('click', () => {
     if (busy || !$('overlay').hidden) return;
