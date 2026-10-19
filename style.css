@@ -369,6 +369,7 @@ h1 em {
   box-shadow:inset 0 0 0 2px #ff9fcb8c,inset 0 0 10px #ff9fcb59
 }
 .cell.jelly.selected {
+  background:#576278;
   box-shadow:inset 0 0 0 2px var(--accent),inset 0 0 10px #ff9fcb59
 }
 .candy {

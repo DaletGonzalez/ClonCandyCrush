@@ -105,6 +105,7 @@
     $('moves').textContent = moves;
     $('moves-stars').textContent = `${'★'.repeat(earned)}${'☆'.repeat(3 - earned)}`;
     $('moves-stars').title = `3 estrellas hasta ${config.par} movimientos`;
+    $('moves-stars').setAttribute('aria-label', `${earned} de 3 estrellas; 3 estrellas hasta ${config.par} movimientos`);
     const progress = Math.min(100, objective() * 100);
     $('progress').style.width = `${progress}%`;
     document.querySelector('.progress').setAttribute('aria-valuenow', Math.round(progress));
@@ -197,11 +198,10 @@
       activated = [];
       status(combo > 1 ? `¡Cascada ×${combo}! +${format(result.clear.size * 60 * Math.min(combo, 5))} puntos` : '¡Qué dulce combinación!');
       await delay(reducedMotion.matches ? 0 : 260);
-      // Cuenta los dulces que se van (también el que se vuelve especial) y quita su gelatina.
-      for (const index of [...result.clear, ...result.specials.keys()]) {
-        if (board[index]?.color >= 0) collected[board[index].color]++;
-        jelly.delete(index);
-      }
+      // Cuenta los dulces que se van; el que se vuelve especial cuenta cuando explote.
+      // La gelatina se quita en ambas casillas.
+      for (const index of result.clear) if (board[index]?.color >= 0) collected[board[index].color]++;
+      for (const index of [...result.clear, ...result.specials.keys()]) jelly.delete(index);
       for (const index of result.clear) board[index] = null;
       for (const [index, tile] of result.specials) board[index] = tile;
       render();
@@ -222,12 +222,12 @@
       if (!engine.shuffle(board)) board = engine.createBoard(config.colors);
       render();
       // Sólo se animan los dulces que cambiaron de casilla.
-      const moves = [];
+      const slides = [];
       board.forEach((tile, index) => {
         const from = previous.indexOf(tile);
-        if (from >= 0 && from !== index) moves.push({ index, ...offset(from, index) });
+        if (from >= 0 && from !== index) slides.push({ index, ...offset(from, index) });
       });
-      await slide(moves, { duration: 420 });
+      await slide(slides, { duration: 420 });
       status('Mezclamos los dulces: ya hay nuevas jugadas.');
     }
   }
@@ -307,7 +307,7 @@
   });
   $('restart').addEventListener('click', () => {
     if (busy || !$('overlay').hidden) return;
-    showDialog('↻', '¿Otra oportunidad?', 'Reiniciarás los puntos y el tablero de este nivel.', 'Reiniciar nivel', start);
+    showDialog('↻', '¿Otra oportunidad?', 'Reiniciarás el tablero, los puntos, los movimientos y el avance del objetivo de este nivel.', 'Reiniciar nivel', start);
     const cancel = document.createElement('button');
     cancel.textContent = 'Seguir jugando'; cancel.className = 'cancel';
     cancel.onclick = () => { cancel.remove(); closeDialog(); buttons[0].focus(); };
